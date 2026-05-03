@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clever Invoice — Extrator de DANFE</title>
+  <style>
+    /* ── Reset & Base ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0f1117;
+      --surface:     #181c27;
+      --surface-2:   #1e2335;
+      --border:      #2a2f45;
+      --accent:      #4f6ef7;
+      --accent-dim:  #3a55d4;
+      --accent-glow: rgba(79, 110, 247, 0.15);
+      --success:     #22c55e;
+      --warning:     #f59e0b;
+      --danger:      #ef4444;
+      --text:        #e2e8f0;
+      --text-muted:  #64748b;
+      --text-dim:    #94a3b8;
+      --font:        'Inter', 'Segoe UI', system-ui, sans-serif;
+      --radius:      10px;
+      --radius-sm:   6px;
+      --shadow:      0 4px 24px rgba(0,0,0,0.4);
+      --transition:  0.2s ease;
+    }
+
+    html { height: 100%; }
+
+    body {
+      min-height: 100%;
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(79,110,247,0.12) 0%, transparent 70%);
+      font-family: var(--font);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(24, 28, 39, 0.9);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg { width: 18px; height: 18px; fill: #fff; }
+
+    .logo-text {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-text span { color: var(--accent); }
+
+    .header-badge {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    main {
+      flex: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 3rem 2rem;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      text-align: center;
+      padding: 1.25rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Page Title ─────────────────────────────────────────────── */
+    .page-title {
+      margin-bottom: 2.5rem;
+    }
+
+    .page-title h1 {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+
+    .page-title p {
+      margin-top: 6px;
+      font-size: 0.875rem;
+      color: var(--text-dim);
+    }
+
+    /* ── Upload Card ─────────────────────────────────────────────── */
+    .upload-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 1rem;
+      background: var(--surface-2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .drop-icon svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    .drop-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .drop-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .drop-sub strong { color: var(--accent); }
+
+    /* selected file indicator */
+    .file-selected {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      margin-top: 1rem;
+    }
+
+    .file-selected.visible { display: flex; }
+
+    .file-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--accent-glow);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .file-icon svg { width: 18px; height: 18px; stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    .file-info { flex: 1; min-width: 0; }
+    .file-name { font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-size { font-size: 0.75rem; color: var(--text-muted); margin-top: 1px; }
+
+    .file-remove {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+    }
+
+    .file-remove:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+    .file-remove svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+
+    .upload-actions {
+      margin-top: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      border: 1px solid transparent;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) { background: var(--accent-dim); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-dim);
+      border-color: var(--border);
+    }
+
+    .btn-ghost:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* ── Progress Bar ────────────────────────────────────────────── */
+    .progress-wrap {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      margin-top: 1rem;
+    }
+
+    .progress-wrap.visible { display: flex; }
+
+    .progress-bar-outer {
+      flex: 1;
+      height: 4px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-bar-inner {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 99px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-bar-inner.indeterminate {
+      width: 40%;
+      animation: indeterminate 1.4s ease-in-out infinite;
+    }
+
+    @keyframes indeterminate {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(300%); }
+    }
+
+    .progress-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 90px;
+      text-align: right;
+    }
+
+    /* ── Alert ───────────────────────────────────────────────────── */
+    .alert {
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      margin-top: 1rem;
+    }
+
+    .alert.visible { display: flex; }
+    .alert svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+
+    .alert-error {
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: #fca5a5;
+    }
+
+    .alert-error svg { stroke: var(--danger); fill: none; stroke-width: 2; stroke-linecap: round; }
+
+    .alert-warning {
+      background: rgba(245,158,11,0.08);
+      border: 1px solid rgba(245,158,11,0.25);
+      color: #fcd34d;
+    }
+
+    .alert-warning svg { stroke: var(--warning); fill: none; stroke-width: 2; stroke-linecap: round; }
+
+    /* ── Result Section ──────────────────────────────────────────── */
+    #result-section { display: none; }
+    #result-section.visible { display: block; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .badge-success {
+      background: rgba(34,197,94,0.15);
+      color: var(--success);
+      border: 1px solid rgba(34,197,94,0.3);
+    }
+
+    /* ── Info Grid ───────────────────────────────────────────────── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .info-cell {
+      background: var(--surface);
+      padding: 16px 20px;
+    }
+
+    .info-cell:hover { background: var(--surface-2); }
+
+    .info-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .info-value {
+      font-size: 0.92rem;
+      font-weight: 500;
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    .info-value.large {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .info-value.null { color: var(--text-muted); font-style: italic; font-weight: 400; }
+
+    .info-cell.copyable { cursor: pointer; }
+    .info-cell.copyable:hover .info-value:not(.null)  { color: var(--accent); }
+    .info-cell.copyable:hover::after {
+      content: 'Clique para copiar';
+      display: block;
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+    .info-cell.copied::after {
+      content: 'Copiado!' !important;
+      color: var(--success) !important;
+    }
+
+    /* ── Table ───────────────────────────────────────────────────── */
+    .table-wrap {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .table-head {
+      padding: 12px 20px;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .table-head svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    thead th {
+      background: var(--surface);
+      padding: 11px 16px;
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    thead th:not(:first-child) { text-align: right; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: var(--transition);
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface-2); }
+
+    tbody td {
+      padding: 12px 16px;
+      color: var(--text-dim);
+      vertical-align: middle;
+    }
+
+    tbody td:first-child { color: var(--text); }
+    tbody td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .qty-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 7px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-dim);
+    }
+
+    tfoot td {
+      padding: 12px 16px;
+      background: var(--surface-2);
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--text);
+      border-top: 1px solid var(--border);
+    }
+
+    tfoot td:last-child {
+      text-align: right;
+      color: var(--accent);
+      font-size: 0.95rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2.5rem;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+    }
+
+    /* ── Section Block ───────────────────────────────────────────── */
+    .data-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .data-section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+      padding-left: 2px;
+    }
+
+    /* ── Meta Footer ─────────────────────────────────────────────── */
+    .result-meta {
+      margin-top: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .meta-item svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      main { padding: 2rem 1rem; }
+      .info-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+/* ── Tabs ───────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2.5rem;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 10px 18px;
+  margin-bottom: -1px;
+  transition: var(--transition);
+}
+
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── ERP Panel ──────────────────────────────────────────────── */
+.erp-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 2rem; }
+
+.erp-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.erp-item-name { flex: 1; font-weight: 600; font-size: 0.9rem; }
+
+.type-badge {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.type-badge-web { background: rgba(79,110,247,0.15); color: var(--accent); border: 1px solid rgba(79,110,247,0.3); }
+.type-badge-desktop { background: rgba(245,158,11,0.1); color: var(--warning); border: 1px solid rgba(245,158,11,0.25); }
+
+.erp-form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem;
+}
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); }
+
+.form-input, .form-select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.875rem;
+  padding: 8px 12px;
+  transition: var(--transition);
+  width: 100%;
+}
+
+.form-input:focus, .form-select:focus { outline: none; border-color: var(--accent); }
+
+/* mapping rows */
+.mapping-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+
+.mapping-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-icon {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 8px;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+}
+
+.btn-icon:hover { color: var(--danger); border-color: var(--danger); background: rgba(239,68,68,0.08); }
+.btn-icon svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+
+/* send-to-erp block */
+.send-erp-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem 2rem;
+  margin-top: 1.5rem;
+}
+
+.send-erp-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.send-erp-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.send-status {
+  margin-top: 1rem;
+  font-size: 0.82rem;
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.send-status.visible { display: flex; }
+.send-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.send-status-dot.pending { background: var(--warning); animation: pulse 1.2s infinite; }
+.send-status-dot.running { background: var(--accent); animation: pulse 1.2s infinite; }
+.send-status-dot.success { background: var(--success); }
+.send-status-dot.error { background: var(--danger); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Import / Export actions ────────────────────────────────── */
+.erp-actions { display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-inner">
+    <a class="logo" href="#">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+          <polyline points="14 2 14 8 20 8" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="16" y1="13" x2="8" y2="13" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="16" y1="17" x2="8" y2="17" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+          <polyline points="10 9 9 9 8 9" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="logo-text">Clever<span>Invoice</span></span>
+    </a>
+    <span class="header-badge">v1.0.0</span>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────────────── -->
+<main>
+  <!-- Tab nav -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="extrator">Extrator de DANFE</button>
+    <button class="tab-btn" data-tab="erps">Perfis de ERP</button>
+  </div>
+
+  <!-- ── Tab: Extrator ─────────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-extrator">
+    <div class="page-title">
+      <h1>Extrator de Notas Fiscais DANFE</h1>
+      <p>Envie um arquivo PDF ou imagem para extrair automaticamente os dados via OCR e Inteligência Artificial.</p>
+    </div>
+
+    <!-- Upload Card (unchanged) -->
+    <div class="upload-card">
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" />
+        <div class="drop-icon">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-title">Arraste o arquivo aqui ou clique para selecionar</div>
+        <div class="drop-sub">Formatos aceitos: <strong>PDF, PNG, JPG, JPEG</strong> &mdash; máx. 10 MB</div>
+      </div>
+
+      <div class="file-selected" id="fileSelected">
+        <div class="file-icon">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div class="file-info">
+          <div class="file-name" id="fileName">—</div>
+          <div class="file-size" id="fileSize">—</div>
+        </div>
+        <button class="file-remove" id="fileRemove" title="Remover arquivo">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="alert alert-error" id="alertError">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="alertErrorText"></span>
+      </div>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar-outer">
+          <div class="progress-bar-inner indeterminate" id="progressBar"></div>
+        </div>
+        <span class="progress-label" id="progressLabel">Processando...</span>
+      </div>
+
+      <div class="upload-actions">
+        <button class="btn btn-ghost" id="btnReset" style="display:none">
+          <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/></svg>
+          Nova consulta
+        </button>
+        <button class="btn btn-primary" id="btnUpload" disabled>
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Processar DANFE
+        </button>
+      </div>
+    </div>
+
+    <!-- Result Section (unchanged, + send block appended inside) -->
+    <section id="result-section">
+
+      <div class="section-header">
+        <div class="section-title">
+          <span class="dot"></span>
+          Dados Extraídos
+        </div>
+        <span class="badge badge-success" id="resultBadge">Sucesso</span>
+      </div>
+
+      <!-- Identificação -->
+      <div class="data-section">
+        <div class="data-section-title">Identificação</div>
+        <div class="info-grid">
+          <div class="info-cell"><div class="info-label">Número da Nota</div><div class="info-value" id="rNumero">—</div></div>
+          <div class="info-cell"><div class="info-label">Série</div><div class="info-value" id="rSerie">—</div></div>
+          <div class="info-cell"><div class="info-label">Data de Emissão</div><div class="info-value" id="rData">—</div></div>
+          <div class="info-cell"><div class="info-label">Data Entrada/Saída</div><div class="info-value" id="rDataEntrada">—</div></div>
+          <div class="info-cell"><div class="info-label">Hora de Saída</div><div class="info-value" id="rHora">—</div></div>
+          <div class="info-cell"><div class="info-label">Natureza da Operação</div><div class="info-value" id="rNatureza">—</div></div>
+          <div class="info-cell" style="grid-column: 1 / -1"><div class="info-label">Chave de Acesso</div><div class="info-value" id="rChave" style="font-size:0.78rem;word-break:break-all">—</div></div>
+          <div class="info-cell" style="grid-column: 1 / -1"><div class="info-label">Protocolo de Autorização</div><div class="info-value" id="rProtocolo">—</div></div>
+        </div>
+      </div>
+
+      <!-- Emitente -->
+      <div class="data-section">
+        <div class="data-section-title">Emitente</div>
+        <div class="info-grid">
+          <div class="info-cell"><div class="info-label">Razão Social</div><div class="info-value" id="rRazao">—</div></div>
+          <div class="info-cell"><div class="info-label">CNPJ</div><div class="info-value" id="rCnpj">—</div></div>
+          <div class="info-cell"><div class="info-label">Inscrição Estadual</div><div class="info-value" id="rIeEmit">—</div></div>
+          <div class="info-cell"><div class="info-label">Endereço</div><div class="info-value" id="rEndEmit">—</div></div>
+          <div class="info-cell"><div class="info-label">Município / UF</div><div class="info-value" id="rMunicEmit">—</div></div>
+          <div class="info-cell"><div class="info-label">CEP</div><div class="info-value" id="rCepEmit">—</div></div>
+          <div class="info-cell"><div class="info-label">Telefone</div><div class="info-value" id="rFoneEmit">—</div></div>
+        </div>
+      </div>
+
+      <!-- Destinatário -->
+      <div class="data-section">
+        <div class="data-section-title">Destinatário / Remetente</div>
+        <div class="info-grid">
+          <div class="info-cell"><div class="info-label">Nome / Razão Social</div><div class="info-value" id="rDestNome">—</div></div>
+          <div class="info-cell"><div class="info-label">CPF / CNPJ</div><div class="info-value" id="rDestDoc">—</div></div>
+          <div class="info-cell"><div class="info-label">Endereço</div><div class="info-value" id="rDestEnd">—</div></div>
+          <div class="info-cell"><div class="info-label">Bairro</div><div class="info-value" id="rDestBairro">—</div></div>
+          <div class="info-cell"><div class="info-label">Município / UF</div><div class="info-value" id="rDestMunic">—</div></div>
+          <div class="info-cell"><div class="info-label">CEP</div><div class="info-value" id="rDestCep">—</div></div>
+          <div class="info-cell"><div class="info-label">Telefone</div><div class="info-value" id="rDestFone">—</div></div>
+          <div class="info-cell"><div class="info-label">Inscrição Estadual</div><div class="info-value" id="rDestIe">—</div></div>
+        </div>
+      </div>
+
+      <!-- Cálculo do Imposto -->
+      <div class="data-section">
+        <div class="data-section-title">Cálculo do Imposto</div>
+        <div class="info-grid">
+          <div class="info-cell"><div class="info-label">BC ICMS</div><div class="info-value" id="rBcIcms">—</div></div>
+          <div class="info-cell"><div class="info-label">Valor ICMS</div><div class="info-value" id="rVlIcms">—</div></div>
+          <div class="info-cell"><div class="info-label">BC ICMS ST</div><div class="info-value" id="rBcSt">—</div></div>
+          <div class="info-cell"><div class="info-label">Valor ICMS ST</div><div class="info-value" id="rVlSt">—</div></div>
+          <div class="info-cell"><div class="info-label">Valor Total Produtos</div><div class="info-value" id="rVlProd">—</div></div>
+          <div class="info-cell"><div class="info-label">Valor do Frete</div><div class="info-value" id="rVlFrete">—</div></div>
+          <div class="info-cell"><div class="info-label">Valor do Seguro</div><div class="info-value" id="rVlSeguro">—</div></div>
+          <div class="info-cell"><div class="info-label">Desconto</div><div class="info-value" id="rDesconto">—</div></div>
+          <div class="info-cell"><div class="info-label">Outras Despesas</div><div class="info-value" id="rOutrasDespesas">—</div></div>
+          <div class="info-cell"><div class="info-label">Valor IPI</div><div class="info-value" id="rVlIpi">—</div></div>
+          <div class="info-cell"><div class="info-label">Valor Total da Nota</div><div class="info-value large" id="rValor">—</div></div>
+          <div class="info-cell"><div class="info-label">Itens na Nota</div><div class="info-value large" id="rQtdItens">0</div></div>
+        </div>
+      </div>
+
+      <!-- Transportador -->
+      <div class="data-section">
+        <div class="data-section-title">Transportador / Volume</div>
+        <div class="info-grid">
+          <div class="info-cell"><div class="info-label">Razão Social</div><div class="info-value" id="rTranspNome">—</div></div>
+          <div class="info-cell"><div class="info-label">CNPJ / CPF</div><div class="info-value" id="rTranspDoc">—</div></div>
+          <div class="info-cell"><div class="info-label">Endereço</div><div class="info-value" id="rTranspEnd">—</div></div>
+          <div class="info-cell"><div class="info-label">Município / UF</div><div class="info-value" id="rTranspMunic">—</div></div>
+          <div class="info-cell"><div class="info-label">Inscrição Estadual</div><div class="info-value" id="rTranspIe">—</div></div>
+          <div class="info-cell"><div class="info-label">Frete por Conta</div><div class="info-value" id="rTranspFrete">—</div></div>
+          <div class="info-cell"><div class="info-label">Placa do Veículo</div><div class="info-value" id="rTranspPlaca">—</div></div>
+          <div class="info-cell"><div class="info-label">Peso Bruto</div><div class="info-value" id="rPesoBruto">—</div></div>
+          <div class="info-cell"><div class="info-label">Peso Líquido</div><div class="info-value" id="rPesoLiq">—</div></div>
+        </div>
+      </div>
+
+      <!-- Products Table -->
+      <div class="data-section">
+        <div class="data-section-title">Produtos / Serviços</div>
+        <div class="table-wrap">
+          <div id="tableContainer" style="overflow-x:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:left">Cód.</th>
+                  <th style="text-align:left">Descrição</th>
+                  <th>NCM/SH</th>
+                  <th>CFOP</th>
+                  <th>Un.</th>
+                  <th>Qtd.</th>
+                  <th>Vlr. Unit.</th>
+                  <th>Vlr. Total</th>
+                  <th>Vlr. ICMS</th>
+                  <th>Vlr. IPI</th>
+                </tr>
+              </thead>
+              <tbody id="productsBody"></tbody>
+              <tfoot id="productsFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meta -->
+      <div class="result-meta">
+        <div class="meta-item">
+          <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          <span id="metaDocId"></span>
+        </div>
+        <div class="meta-item">
+          <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span id="metaFileName"></span>
+        </div>
+      </div>
+
+      <!-- Send to ERP block -->
+      <div class="send-erp-block" id="sendErpBlock">
+        <div class="send-erp-title">Enviar ao ERP</div>
+        <div class="send-erp-row">
+          <select class="form-select" id="erpSelect" style="max-width:280px">
+            <option value="">Selecione um perfil de ERP...</option>
+          </select>
+          <button class="btn btn-primary" id="btnSendErp" disabled>
+            <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Enviar
+          </button>
+        </div>
+        <div class="send-status" id="sendStatus">
+          <span class="send-status-dot" id="sendStatusDot"></span>
+          <span id="sendStatusText"></span>
+        </div>
+      </div>
+
+    </section>
+  </div>
+
+  <!-- ── Tab: ERPs ─────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-erps">
+    <div class="page-title">
+      <h1>Perfis de ERP</h1>
+      <p>Configure os ERPs para onde os dados extraídos serão enviados automaticamente.</p>
+    </div>
+
+    <!-- Import / Export actions -->
+    <div class="erp-actions">
+      <button class="btn btn-ghost" id="btnExportAll" disabled>
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar tudo
+      </button>
+      <label class="btn btn-ghost" style="cursor:pointer;margin:0">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Importar
+        <input type="file" id="importFileInput" accept=".json" style="display:none" />
+      </label>
+      <span id="importResult" style="display:none;font-size:0.82rem;padding:4px 0"></span>
+    </div>
+
+    <div class="erp-list" id="erpList">
+      <div class="empty-state" id="erpEmpty" style="padding:2rem;color:var(--text-muted);font-size:0.85rem">
+        Nenhum perfil cadastrado.
+      </div>
+    </div>
+
+    <div class="erp-form-card">
+      <div class="data-section-title" style="margin-bottom:1.25rem">Novo Perfil de ERP</div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Nome do ERP</label>
+          <input class="form-input" id="erpName" placeholder="Ex: TOTVS Protheus" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" id="erpType">
+            <option value="web">Web (navegador)</option>
+            <option value="desktop">Desktop (aplicação local)</option>
+          </select>
+        </div>
+        <div class="form-group full" id="erpUrlGroup">
+          <label class="form-label">URL de acesso</label>
+          <input class="form-input" id="erpUrl" placeholder="https://erp.cliente.com.br/nf-entrada" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Usuário (opcional)</label>
+          <input class="form-input" id="erpUser" placeholder="usuario" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Senha (opcional)</label>
+          <input class="form-input" type="password" id="erpPass" placeholder="••••••••" />
+        </div>
+        <div class="form-group full" id="erpSubmitGroup">
+          <label class="form-label">Seletor do botão Salvar (opcional)</label>
+          <input class="form-input" id="erpSubmitSel" placeholder="#btn-salvar  (somente para ERP web)" />
+        </div>
+      </div>
+
+      <div class="data-section-title" style="margin-bottom:0.75rem">Mapeamento de Campos</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:6px;padding:0 2px">
+        <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted)">Campo da DANFE</span>
+        <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted)">Seletor / Coordenadas</span>
+        <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted)">Rótulo</span>
+        <span></span>
+      </div>
+      <div class="mapping-rows" id="mappingRows"></div>
+      <button class="btn btn-ghost" id="btnAddMapping" style="margin-bottom:1.5rem">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Adicionar campo
+      </button>
+
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn btn-primary" id="btnSaveErp">
+          <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Salvar perfil
+        </button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  &copy; 2026 Clever Invoice &mdash; Extração inteligente de Notas Fiscais DANFE
+</footer>
+
+<script>
+  const API_BASE = 'http://127.0.0.1:8000'
+
+  // ── Tab navigation ───────────────────────────────────────────────
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'))
+      btn.classList.add('active')
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active')
+      if (btn.dataset.tab === 'erps') loadErpProfiles()
+    })
+  })
+
+  // ── ERP type toggle ──────────────────────────────────────────────
+  document.getElementById('erpType').addEventListener('change', e => {
+    const isWeb = e.target.value === 'web'
+    document.getElementById('erpUrlGroup').style.display = isWeb ? '' : 'none'
+    document.getElementById('erpSubmitGroup').style.display = isWeb ? '' : 'none'
+  })
+
+  // ── DANFE fields dropdown options ────────────────────────────────
+  const DANFE_FIELDS = [
+    'numero_nota','serie','data_emissao','data_entrada_saida','hora_saida',
+    'chave_acesso','protocolo_autorizacao','natureza_operacao',
+    'cnpj_emitente','razao_social_emitente','endereco_emitente',
+    'municipio_emitente','uf_emitente','cep_emitente','fone_emitente',
+    'inscricao_estadual_emitente','valor_total',
+    'destinatario.nome_razao_social','destinatario.cpf_cnpj',
+    'destinatario.endereco','destinatario.bairro','destinatario.municipio',
+    'destinatario.uf','destinatario.cep','destinatario.fone',
+    'destinatario.inscricao_estadual',
+    'impostos.bc_icms','impostos.valor_icms','impostos.bc_icms_st',
+    'impostos.valor_icms_st','impostos.valor_total_produtos',
+    'impostos.valor_frete','impostos.valor_seguro','impostos.desconto',
+    'impostos.outras_despesas','impostos.valor_ipi','impostos.valor_total_nota',
+    'transportador.razao_social','transportador.cpf_cnpj',
+    'transportador.endereco','transportador.municipio','transportador.uf',
+    'transportador.placa_veiculo','transportador.peso_bruto','transportador.peso_liquido',
+  ]
+
+  function fieldOptions(selected = '') {
+    return DANFE_FIELDS.map(f =>
+      `<option value="${f}" ${f === selected ? 'selected' : ''}>${f}</option>`
+    ).join('')
+  }
+
+  // ── Mapping rows ─────────────────────────────────────────────────
+  document.getElementById('btnAddMapping').addEventListener('click', () => addMappingRow())
+
+  function addMappingRow(field = '', selector = '', label = '') {
+    const row = document.createElement('div')
+    row.className = 'mapping-row'
+    row.innerHTML = `
+      <select class="form-select map-field">${fieldOptions(field)}</select>
+      <input class="form-input map-selector" placeholder="#css-selector ou Título::x,y" value="${escHtml(selector)}" />
+      <input class="form-input map-label" placeholder="Rótulo" value="${escHtml(label)}" />
+      <button class="btn-icon" title="Remover">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    `
+    row.querySelector('.btn-icon').addEventListener('click', () => row.remove())
+    document.getElementById('mappingRows').appendChild(row)
+  }
+
+  // ── Export / Import ──────────────────────────────────────────────
+  let _erpProfiles = []
+
+  function profileToExport(p) {
+    return {
+      name: p.name,
+      type: p.type,
+      url: p.url || null,
+      field_mappings: p.field_mappings,
+      submit_selector: p.submit_selector || null,
+    }
+  }
+
+  function downloadJson(filename, data) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  let _importResultTimer = null
+  function showImportResult(text, color) {
+    const el = document.getElementById('importResult')
+    el.textContent = text
+    el.style.color = color
+    el.style.display = 'block'
+    if (_importResultTimer) clearTimeout(_importResultTimer)
+    _importResultTimer = setTimeout(() => { el.style.display = 'none' }, 5000)
+  }
+
+  document.getElementById('btnExportAll').addEventListener('click', () => {
+    downloadJson('erp-profiles.json', _erpProfiles.map(profileToExport))
+  })
+
+  document.getElementById('importFileInput').addEventListener('change', async e => {
+    const file = e.target.files[0]
+    if (!file) return
+    e.target.value = ''
+    let profiles
+    try {
+      profiles = JSON.parse(await file.text())
+      if (!Array.isArray(profiles)) throw new Error('Arquivo inválido: esperado um array JSON.')
+    } catch (err) {
+      showImportResult(err.message, 'var(--danger)')
+      return
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/erp/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profiles),
+      })
+      const data = await res.json()
+      if (!res.ok) { showImportResult(data.detail || 'Erro ao importar.', 'var(--danger)'); return }
+      if (data.failed === 0) {
+        showImportResult(`${data.imported} perfil(is) importado(s) com sucesso.`, 'var(--success)')
+      } else {
+        const reasons = data.errors.map(err => err.name + ': ' + err.reason).join('; ')
+        showImportResult(`${data.imported} importado(s), ${data.failed} falhou: ${reasons}`, 'var(--warning)')
+      }
+      loadErpProfiles()
+    } catch {
+      showImportResult('Erro ao conectar à API.', 'var(--danger)')
+    }
+  })
+
+  // ── Load & render ERP profiles ───────────────────────────────────
+  async function loadErpProfiles() {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/erp/`)
+      if (!res.ok) throw new Error(`API error ${res.status}`)
+      const profiles = await res.json()
+      renderErpList(profiles)
+      populateErpSelect(profiles)
+    } catch {
+      document.getElementById('erpList').innerHTML =
+        '<div class="empty-state" style="padding:2rem;color:var(--danger);font-size:0.85rem">Erro ao conectar à API.</div>'
+    }
+  }
+
+  function renderErpList(profiles) {
+    _erpProfiles = profiles
+    document.getElementById('btnExportAll').disabled = !profiles.length
+
+    const list = document.getElementById('erpList')
+    const empty = document.getElementById('erpEmpty')
+    list.querySelectorAll('.erp-item').forEach(el => el.remove())
+    if (!profiles.length) { empty.style.display = ''; return }
+    empty.style.display = 'none'
+    profiles.forEach(p => {
+      const item = document.createElement('div')
+      item.className = 'erp-item'
+      item.innerHTML = `
+        <span class="erp-item-name">${escHtml(p.name)}</span>
+        <span class="type-badge ${p.type === 'web' ? 'type-badge-web' : 'type-badge-desktop'}">${escHtml(p.type)}</span>
+        ${p.url ? `<span style="font-size:0.78rem;color:var(--text-muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.url)}</span>` : '<span style="flex:1"></span>'}
+        <button class="btn btn-ghost export-item-btn" style="padding:5px 12px;font-size:0.78rem">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar
+        </button>
+        <button class="btn btn-ghost delete-item-btn" style="padding:5px 12px;font-size:0.78rem">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          Remover
+        </button>
+      `
+      const safeName = p.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()
+      item.querySelector('.export-item-btn').addEventListener('click', () => downloadJson(`${safeName}.json`, [profileToExport(p)]))
+      item.querySelector('.delete-item-btn').addEventListener('click', () => deleteErpProfile(p.id))
+      list.appendChild(item)
+    })
+  }
+
+  function populateErpSelect(profiles) {
+    const sel = document.getElementById('erpSelect')
+    const current = sel.value
+    sel.innerHTML = '<option value="">Selecione um perfil de ERP...</option>' +
+      profiles.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('')
+    if (current) sel.value = current
+    document.getElementById('btnSendErp').disabled = !sel.value
+  }
+
+  document.getElementById('erpSelect').addEventListener('change', e => {
+    document.getElementById('btnSendErp').disabled = !e.target.value
+  })
+
+  // ── Save ERP profile ─────────────────────────────────────────────
+  document.getElementById('btnSaveErp').addEventListener('click', async () => {
+    const name = document.getElementById('erpName').value.trim()
+    const type = document.getElementById('erpType').value
+    const url  = document.getElementById('erpUrl').value.trim() || null
+    const user = document.getElementById('erpUser').value.trim()
+    const pass = document.getElementById('erpPass').value
+    const submitSel = document.getElementById('erpSubmitSel').value.trim() || null
+
+    if (!name) { alert('Informe o nome do ERP.'); return }
+    if (type === 'web' && !url) { alert('Informe a URL para ERP do tipo web.'); return }
+
+    const mappings = [...document.querySelectorAll('.mapping-row')].map(row => ({
+      danfe_field: row.querySelector('.map-field').value,
+      selector:    row.querySelector('.map-selector').value.trim(),
+      label:       row.querySelector('.map-label').value.trim(),
+    })).filter(m => m.selector)
+
+    const body = {
+      name, type, url,
+      credentials: (user || pass) ? { username: user, password: pass } : null,
+      field_mappings: mappings,
+      submit_selector: submitSel,
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/erp/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) { const e = await res.json(); alert(e.detail || 'Erro ao salvar.'); return }
+      document.getElementById('erpName').value = ''
+      document.getElementById('erpUrl').value  = ''
+      document.getElementById('erpUser').value = ''
+      document.getElementById('erpPass').value = ''
+      document.getElementById('erpSubmitSel').value = ''
+      document.getElementById('mappingRows').innerHTML = ''
+      loadErpProfiles()
+    } catch { alert('Não foi possível conectar à API.') }
+  })
+
+  // ── Delete ERP profile ───────────────────────────────────────────
+  async function deleteErpProfile(id) {
+    if (!confirm('Remover este perfil de ERP?')) return
+    const res = await fetch(`${API_BASE}/api/v1/erp/${id}`, { method: 'DELETE' })
+    if (!res.ok) { alert('Não foi possível remover o perfil.'); return }
+    loadErpProfiles()
+  }
+
+  // ── Send to ERP ──────────────────────────────────────────────────
+  let _currentDocumentId = null
+  let _pollInterval = null
+
+  document.getElementById('btnSendErp').addEventListener('click', async () => {
+    const erpId = document.getElementById('erpSelect').value
+    if (!erpId || !_currentDocumentId) return
+
+    setSendStatus('running', 'Enviando dados ao ERP...')
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/erp/send/${encodeURIComponent(_currentDocumentId)}?erp_id=${encodeURIComponent(erpId)}`,
+        { method: 'POST' }
+      )
+      if (!res.ok) {
+        const e = await res.json()
+        setSendStatus('error', e.detail || 'Erro ao iniciar envio.')
+        return
+      }
+      const { task_id } = await res.json()
+      pollTaskStatus(task_id)
+    } catch {
+      setSendStatus('error', 'Não foi possível conectar à API.')
+    }
+  })
+
+  function pollTaskStatus(taskId) {
+    if (_pollInterval) clearInterval(_pollInterval)
+    _pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/erp/status/${taskId}`)
+        const data = await res.json()
+        setSendStatus(data.status, data.message || statusLabel(data.status))
+        if (data.status === 'success' || data.status === 'error') {
+          clearInterval(_pollInterval)
+          _pollInterval = null
+        }
+      } catch {
+        clearInterval(_pollInterval)
+        _pollInterval = null
+        setSendStatus('error', 'Erro ao verificar status do envio.')
+      }
+    }, 2000)
+  }
+
+  function statusLabel(s) {
+    return { pending: 'Aguardando...', running: 'Enviando...', success: 'Enviado com sucesso!', error: 'Erro no envio.' }[s] || s
+  }
+
+  function setSendStatus(status, message) {
+    const el   = document.getElementById('sendStatus')
+    const dot  = document.getElementById('sendStatusDot')
+    const text = document.getElementById('sendStatusText')
+    dot.className = `send-status-dot ${status}`
+    text.textContent = message
+    el.classList.add('visible')
+  }
+
+  // ── Upload & file handling (unchanged) ───────────────────────────
+  const dropZone     = document.getElementById('dropZone')
+  const fileInput    = document.getElementById('fileInput')
+  const fileSelected = document.getElementById('fileSelected')
+  const fileName     = document.getElementById('fileName')
+  const fileSize     = document.getElementById('fileSize')
+  const fileRemove   = document.getElementById('fileRemove')
+  const btnUpload    = document.getElementById('btnUpload')
+  const btnReset     = document.getElementById('btnReset')
+  const alertError   = document.getElementById('alertError')
+  const alertErrorTx = document.getElementById('alertErrorText')
+  const progressWrap = document.getElementById('progressWrap')
+  const progressLbl  = document.getElementById('progressLabel')
+  const resultSec    = document.getElementById('result-section')
+
+  let selectedFile = null
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover') })
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'))
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('dragover')
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0])
+  })
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]) })
+  fileRemove.addEventListener('click', e => { e.stopPropagation(); clearFile() })
+
+  function setFile(f) {
+    selectedFile = f
+    fileName.textContent = f.name
+    fileSize.textContent = formatBytes(f.size)
+    fileSelected.classList.add('visible')
+    btnUpload.disabled = false
+    hideError()
+  }
+
+  function clearFile() {
+    selectedFile = null
+    fileInput.value = ''
+    fileSelected.classList.remove('visible')
+    btnUpload.disabled = true
+    hideError()
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / 1048576).toFixed(2) + ' MB'
+  }
+
+  btnUpload.addEventListener('click', async () => {
+    if (!selectedFile) return
+    setLoading(true)
+    hideError()
+    resultSec.classList.remove('visible')
+
+    const form = new FormData()
+    form.append('file', selectedFile)
+
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/upload`, { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok) { showError(data.detail || `Erro ${res.status}`); return }
+      renderResult(data)
+    } catch {
+      showError('Não foi possível conectar à API. Verifique se o servidor está rodando em ' + API_BASE)
+    } finally {
+      setLoading(false)
+    }
+  })
+
+  btnReset.addEventListener('click', () => {
+    clearFile()
+    resultSec.classList.remove('visible')
+    btnReset.style.display = 'none'
+    _currentDocumentId = null
+    document.getElementById('sendStatus').classList.remove('visible')
+  })
+
+  // ── Render result ────────────────────────────────────────────────
+  function renderResult(data) {
+    _currentDocumentId = data.document_id
+    const d = data.dados
+
+    setText('rNumero',    d.numero_nota)
+    setText('rSerie',     d.serie)
+    setText('rData',      d.data_emissao)
+    setText('rDataEntrada', d.data_entrada_saida)
+    setText('rHora',      d.hora_saida)
+    setText('rNatureza',  d.natureza_operacao)
+    setText('rChave',     d.chave_acesso)
+    setText('rProtocolo', d.protocolo_autorizacao)
+
+    setText('rRazao',     d.razao_social_emitente)
+    setText('rCnpj',      formatCnpj(d.cnpj_emitente))
+    setText('rIeEmit',    d.inscricao_estadual_emitente)
+    setText('rEndEmit',   d.endereco_emitente)
+    setText('rMunicEmit', joinValues([d.municipio_emitente, d.uf_emitente]))
+    setText('rCepEmit',   formatCep(d.cep_emitente))
+    setText('rFoneEmit',  d.fone_emitente)
+
+    const dest = d.destinatario || {}
+    setText('rDestNome',   dest.nome_razao_social)
+    setText('rDestDoc',    formatDoc(dest.cpf_cnpj))
+    setText('rDestEnd',    dest.endereco)
+    setText('rDestBairro', dest.bairro)
+    setText('rDestMunic',  joinValues([dest.municipio, dest.uf]))
+    setText('rDestCep',    formatCep(dest.cep))
+    setText('rDestFone',   dest.fone)
+    setText('rDestIe',     dest.inscricao_estadual)
+
+    const imp = d.impostos || {}
+    setCurrency('rBcIcms',         imp.bc_icms)
+    setCurrency('rVlIcms',         imp.valor_icms)
+    setCurrency('rBcSt',           imp.bc_icms_st)
+    setCurrency('rVlSt',           imp.valor_icms_st)
+    setCurrency('rVlProd',         imp.valor_total_produtos)
+    setCurrency('rVlFrete',        imp.valor_frete)
+    setCurrency('rVlSeguro',       imp.valor_seguro)
+    setCurrency('rDesconto',       imp.desconto)
+    setCurrency('rOutrasDespesas', imp.outras_despesas)
+    setCurrency('rVlIpi',          imp.valor_ipi)
+    setCurrency('rValor',          imp.valor_total_nota)
+
+    const tr = d.transportador || {}
+    setText('rTranspNome',  tr.razao_social)
+    setText('rTranspDoc',   formatDoc(tr.cpf_cnpj))
+    setText('rTranspEnd',   tr.endereco)
+    setText('rTranspMunic', joinValues([tr.municipio, tr.uf]))
+    setText('rTranspIe',    tr.inscricao_estadual)
+    setText('rTranspFrete', tr.frete_por_conta)
+    setText('rTranspPlaca', tr.placa_veiculo)
+    setText('rPesoBruto',   tr.peso_bruto != null ? tr.peso_bruto + ' kg' : null)
+    setText('rPesoLiq',     tr.peso_liquido != null ? tr.peso_liquido + ' kg' : null)
+
+    const itens = d.produtos || []
+    document.getElementById('rQtdItens').textContent = itens.length
+    renderTable(itens)
+
+    document.getElementById('metaDocId').textContent   = 'ID: ' + data.document_id
+    document.getElementById('metaFileName').textContent = data.file_name
+
+    document.querySelectorAll('#result-section .info-cell').forEach(cell => {
+      const valueEl = cell.querySelector('.info-value')
+      if (valueEl && !valueEl.classList.contains('null')) cell.classList.add('copyable')
+    })
+    fetch(`${API_BASE}/api/v1/erp/`)
+      .then(r => r.json())
+      .then(populateErpSelect)
+      .catch(() => {})
+
+    resultSec.classList.add('visible')
+    btnReset.style.display = 'inline-flex'
+    resultSec.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  document.getElementById('result-section').addEventListener('click', async e => {
+    const cell = e.target.closest('.info-cell.copyable')
+    if (!cell) return
+    const valueEl = cell.querySelector('.info-value')
+    if (!valueEl || valueEl.classList.contains('null')) return
+    try {
+      await navigator.clipboard.writeText(valueEl.textContent.trim())
+    } catch {
+      const range = document.createRange()
+      range.selectNode(valueEl)
+      window.getSelection().removeAllRanges()
+      window.getSelection().addRange(range)
+      document.execCommand('copy')
+      window.getSelection().removeAllRanges()
+    }
+    cell.classList.add('copied')
+    setTimeout(() => cell.classList.remove('copied'), 1500)
+  })
+
+  function renderTable(produtos) {
+    const tbody = document.getElementById('productsBody')
+    const tfoot = document.getElementById('productsFoot')
+    tbody.innerHTML = ''
+    tfoot.innerHTML = ''
+    if (!produtos.length) {
+      tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Nenhum produto identificado na nota fiscal.</td></tr>`
+      return
+    }
+    const dash = `<span style="color:var(--text-muted)">—</span>`
+    let total = 0
+    produtos.forEach(p => {
+      total += p.valor_total || 0
+      const tr = document.createElement('tr')
+      tr.innerHTML = `
+        <td style="text-align:left">${p.codigo ? escHtml(p.codigo) : dash}</td>
+        <td style="text-align:left">${escHtml(p.descricao)}</td>
+        <td>${p.ncm_sh ? escHtml(p.ncm_sh) : dash}</td>
+        <td>${p.cfop   ? escHtml(p.cfop)   : dash}</td>
+        <td>${p.unidade ? escHtml(p.unidade) : dash}</td>
+        <td><span class="qty-badge">${p.quantidade}</span></td>
+        <td>${p.valor_unitario != null ? formatCurrency(p.valor_unitario) : dash}</td>
+        <td>${formatCurrency(p.valor_total)}</td>
+        <td>${p.valor_icms != null ? formatCurrency(p.valor_icms) : dash}</td>
+        <td>${p.valor_ipi  != null ? formatCurrency(p.valor_ipi)  : dash}</td>
+      `
+      tbody.appendChild(tr)
+    })
+    const tfr = document.createElement('tr')
+    tfr.innerHTML = `
+      <td colspan="9" style="font-size:0.78rem;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:0.06em;">Total dos itens</td>
+      <td style="text-align:right">${formatCurrency(total)}</td>
+    `
+    tfoot.appendChild(tfr)
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────
+  function setText(id, val) {
+    const el = document.getElementById(id)
+    if (!el) return
+    if (val != null && val !== '') { el.textContent = val; el.classList.remove('null') }
+    else { el.textContent = 'Não identificado'; el.classList.add('null') }
+  }
+
+  function setCurrency(id, val) {
+    const el = document.getElementById(id)
+    if (!el) return
+    if (val != null) { el.textContent = formatCurrency(val); el.classList.remove('null') }
+    else { el.textContent = 'Não identificado'; el.classList.add('null') }
+  }
+
+  function joinValues(arr) {
+    const parts = arr.filter(v => v != null && v !== '')
+    return parts.length ? parts.join(' / ') : null
+  }
+
+  function formatCurrency(val) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
+  }
+
+  function formatCnpj(cnpj) {
+    if (!cnpj) return null
+    const d = cnpj.replace(/\D/g, '')
+    if (d.length !== 14) return cnpj
+    return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+  }
+
+  function formatDoc(doc) {
+    if (!doc) return null
+    const d = doc.replace(/\D/g, '')
+    if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4')
+    if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+    return doc
+  }
+
+  function formatCep(cep) {
+    if (!cep) return null
+    const d = cep.replace(/\D/g, '')
+    if (d.length === 8) return d.replace(/^(\d{5})(\d{3})$/, '$1-$2')
+    return cep
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  }
+
+  function setLoading(on) {
+    btnUpload.disabled = on
+    progressWrap.classList.toggle('visible', on)
+    progressLbl.textContent = on ? 'Processando...' : ''
+  }
+
+  function showError(msg) { alertErrorTx.textContent = msg; alertError.classList.add('visible') }
+  function hideError()    { alertError.classList.remove('visible') }
+</script>
+
+</body>
+</html>
