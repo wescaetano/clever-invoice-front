@@ -143,6 +143,33 @@
       margin-bottom: 2rem;
     }
 
+    /* ── AI Mode Toggle ─────────────────────────────────────────── */
+    .ai-mode-toggle {
+      display: inline-flex;
+      gap: 4px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 3px;
+      margin-bottom: 1.25rem;
+    }
+
+    .ai-mode-btn {
+      background: none;
+      border: none;
+      border-radius: 99px;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 7px 16px;
+      transition: var(--transition);
+    }
+
+    .ai-mode-btn:hover { color: var(--text); }
+    .ai-mode-btn.active { background: var(--accent); color: #fff; }
+
     .drop-zone {
       border: 2px dashed var(--border);
       border-radius: var(--radius);
@@ -783,8 +810,13 @@
       <p>Envie um arquivo PDF ou imagem para extrair automaticamente os dados via OCR e Inteligência Artificial.</p>
     </div>
 
-    <!-- Upload Card (unchanged) -->
+    <!-- Upload Card -->
     <div class="upload-card">
+      <div class="ai-mode-toggle" role="radiogroup" aria-label="Modo de IA">
+        <button type="button" class="ai-mode-btn" data-mode="cloud" aria-pressed="true">Nuvem (OpenAI)</button>
+        <button type="button" class="ai-mode-btn" data-mode="local" aria-pressed="false">Local (LM Studio)</button>
+      </div>
+
       <div class="drop-zone" id="dropZone">
         <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" />
         <div class="drop-icon">
@@ -839,7 +871,15 @@
           <span class="dot"></span>
           Dados Extraídos
         </div>
-        <span class="badge badge-success" id="resultBadge">Sucesso</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge" id="providerBadge" style="background:var(--surface-2);color:var(--text-dim);border:1px solid var(--border)">—</span>
+          <span class="badge badge-success" id="resultBadge">Sucesso</span>
+        </div>
+      </div>
+
+      <div class="alert alert-warning" id="alertFallback">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>A IA na nuvem estava indisponível — esta nota foi processada pela IA local (LM Studio).</span>
       </div>
 
       <!-- Identificação -->
@@ -1389,6 +1429,25 @@
 
   let selectedFile = null
 
+  // ── AI mode toggle ────────────────────────────────────────────────
+  let aiMode = 'cloud'
+  try { aiMode = localStorage.getItem('aiMode') || 'cloud' } catch {}
+
+  const aiModeButtons = document.querySelectorAll('.ai-mode-btn')
+
+  function setAiMode(mode) {
+    aiMode = mode
+    aiModeButtons.forEach(btn => {
+      const active = btn.dataset.mode === mode
+      btn.classList.toggle('active', active)
+      btn.setAttribute('aria-pressed', String(active))
+    })
+    try { localStorage.setItem('aiMode', mode) } catch {}
+  }
+
+  aiModeButtons.forEach(btn => btn.addEventListener('click', () => setAiMode(btn.dataset.mode)))
+  setAiMode(aiMode)
+
   dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover') })
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'))
   dropZone.addEventListener('drop', e => {
@@ -1426,9 +1485,11 @@
     setLoading(true)
     hideError()
     resultSec.classList.remove('visible')
+    document.getElementById('alertFallback').classList.remove('visible')
 
     const form = new FormData()
     form.append('file', selectedFile)
+    form.append('ai_mode', aiMode)
 
     try {
       const res = await fetch(`${API_BASE}/api/v1/upload`, { method: 'POST', body: form })
@@ -1448,12 +1509,17 @@
     btnReset.style.display = 'none'
     _currentDocumentId = null
     document.getElementById('sendStatus').classList.remove('visible')
+    document.getElementById('alertFallback').classList.remove('visible')
   })
 
   // ── Render result ────────────────────────────────────────────────
   function renderResult(data) {
     _currentDocumentId = data.document_id
     const d = data.dados
+
+    document.getElementById('providerBadge').textContent =
+      'Processado via: ' + (data.ai_provider_used === 'local' ? 'Local' : 'Nuvem')
+    document.getElementById('alertFallback').classList.toggle('visible', !!data.ai_fallback_used)
 
     setText('rNumero',    d.numero_nota)
     setText('rSerie',     d.serie)
