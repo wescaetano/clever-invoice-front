@@ -1061,6 +1061,7 @@
           <select class="form-select" id="erpType">
             <option value="web">Web (navegador)</option>
             <option value="desktop">Desktop (aplicação local)</option>
+            <option value="dolibarr">Dolibarr</option>
           </select>
         </div>
         <div class="form-group full" id="erpUrlGroup">
@@ -1081,8 +1082,8 @@
         </div>
       </div>
 
-      <div class="data-section-title" style="margin-bottom:0.75rem">Mapeamento de Campos</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:6px;padding:0 2px">
+      <div class="data-section-title" id="mappingSectionTitle" style="margin-bottom:0.75rem">Mapeamento de Campos</div>
+      <div id="mappingHeaderRow" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:6px;padding:0 2px">
         <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted)">Campo da DANFE</span>
         <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted)">Seletor / Coordenadas</span>
         <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted)">Rótulo</span>
@@ -1125,9 +1126,18 @@
   // ── ERP type toggle ──────────────────────────────────────────────
   document.getElementById('erpType').addEventListener('change', e => {
     const isWeb = e.target.value === 'web'
-    document.getElementById('erpUrlGroup').style.display = isWeb ? '' : 'none'
+    document.getElementById('erpUrlGroup').style.display = (isWeb || e.target.value === 'dolibarr') ? '' : 'none'
     document.getElementById('erpSubmitGroup').style.display = isWeb ? '' : 'none'
+    toggleMappingSection(isWeb)
   })
+
+  function toggleMappingSection(visible) {
+    const display = visible ? '' : 'none'
+    document.getElementById('mappingRows').style.display = display
+    document.getElementById('btnAddMapping').style.display = display
+    document.getElementById('mappingSectionTitle').style.display = display
+    document.getElementById('mappingHeaderRow').style.display = visible ? 'grid' : 'none'
+  }
 
   // ── DANFE fields dropdown options ────────────────────────────────
   const DANFE_FIELDS = [
